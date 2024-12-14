@@ -33,8 +33,8 @@ app.get('/pizze', async (req, res) => {
       .find({ cijena: Number(cijena) })
       .toArray();
     res.status(200).json(pizze_rezultati);
-  } catch (err) {
-    res.status(400).json({ err: err.errorResponse });
+  } catch (error) {
+    res.status(400).json({ error: error.errorResponse });
   }
 });
 
@@ -53,22 +53,58 @@ app.post('/narudzba', async (res, req) => {
   const narudzbe_collection = db.collection('narudzbe');
   const newNarudzba = req.body;
   const primarniKljuc = ['kupac', 'narucena_pizza'];
-  const stavkaPrimarniKljuc = ['naziv', 'kolicina', 'cijena'];
+  const artiklPrimarniKljuc = ['naziv', 'kolicina', 'cijena'];
   const kupacPrimarniKljuc = ['ime', 'prezime', 'adresa', 'broj_telefona'];
 
   const nedostaciKljuca = primarniKljuc.filter(key => !(key in newNarudzba));
   if(nedostaciKljuca.length > 0){
     console.log('Narudžba obaveznog ključa nedostaje: ', nedostaciKljuca);
-    return res.status(400).json({ err: 'Narudžba obaveznog ključa nedostaje: ${missingKeys.join(', ')}' });
+    return res.status(400).json({ error: `Narudžba obaveznog ključa nedostaje: ${nedostaciKljuca.join(', ')}` });
   }
   const nedostaciKupacKljuca = kupacPrimarniKljuc.filter(key => !(key in newNarudzba.kupac));
   if(nedostaciKupacKljuca.length > 0){
     console.log('Narudžba obaveznog ključa kupca nedostaje: ', nedostaciKupacKljuca);
-    return res.status(400).json({ err: 'Narudžba obaveznog ključa kupca nedostaje: ${nedostaciKupacKljuca.join(', ')}' });
+    return res.status(400).json({ error: `Narudžba obaveznog ključa kupca nedostaje: ${nedostaciKupacKljuca.join(', ')}` });
   }
   const telefon = novaNarudzba.kupac.broj_telefona;
 
+  try{
+    const pizzaDostupna = await pizze_collection.find().toArray();
+    const naziviDostupnosti = dostupno.map(pizza => pizza.naziv);
+    for(const artikl of newNarudzba.narucena_pizza)
+      const nedostaciArtiklKljuca = artiklPrimarniKljuc.filter(key => !(key in artikl));
+    if(nedostaciArtiklKljuca.length > 0){
+      console.log('U artikli narudžbe nedostaju obvezni ključevi: ', nedostaciArtiklKljuca, artikl);
+      return res.status(400).json({ error: `U artikli narudžbe nedostaju obvezni ključevi: ${nedostaciArtiklKljuca.join(', ')}`
+    });
+}
+if (!naziviDostupnosti.includes(artikl.naziv)) {
+  return res.status(400).json({ error: `Pizza "${artikl.naziv}" nema u ponudi.` });
+}
+if (isNaN(artikl.kolicina) || artikl.kolicina <= 0) {
+  return res.status(400).json({
+      error: `Količina mora biti pozitivan broj za artikl: ${JSON.stringify(artikl)}`
+  });
+}
+const rez = await narudzbe_collection.insertOne({ ...newNarudzba, datum: new Date()});
+console.log('Narudžba je spremljena: ', rez);
+res.status(201).json({ msg: 'Narudžba je uspješno spremljena', insertedId: rez.insertedId});
+  }catch (error){
+    console.error('Dogodila se greška pri obrade narudžbe: ', error);
+    res.status(500).json({ error: 'Dogodila se greška na serveru prilikom obrade narudžbe' });
+  }
 });
+
+app.patch('/pizze/:naziv', async(res,req)=>{
+  let pizze_collection = db.collection('pizze');
+  let naziv_param = req.params.naziv;
+  let newCijena = req.body.cijena;
+
+  if(newCijena <= 0){
+    return res.status(400).json({ error: 'Cijena mora biti veći od nule'});
+  }
+})
+
 
 const PORT = 3000;
 app.listen(PORT, (error) => {
