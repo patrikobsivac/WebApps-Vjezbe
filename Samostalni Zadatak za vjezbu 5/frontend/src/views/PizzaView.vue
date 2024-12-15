@@ -4,100 +4,87 @@
     <form @submit.prevent="dodajPizzu" enctype="multipart/form-data">
       <div>
         <label for="naziv">Naziv:</label>
-        <input v-model="novaPizza.naziv" type="text" id="naziv" required />
+        <input v-model="newPizza.naziv" type="text" id="naziv" required />
       </div>
       <div>
         <label for="cijena">Cijena:</label>
-        <input v-model="novaPizza.cijena" type="number" id="cijena" required />
+        <input v-model="newPizza.cijena" type="number" id="cijena" required />
       </div>
       <div>
-        <label for="sastojci">Sastojci (odvojeni zarezom):</label>
+        <label for="sastojci">Sastojci:</label>
         <input
-          v-model="novaPizza.sastojciText"
+          v-model="newPizza.sastojciText"
           type="text"
           id="sastojci"
-          placeholder="Unesite sastojke (npr. sir, šunka, gljive)"
+          placeholder="Unesite sastojke"
         />
       </div>
       <div></div>
       <button type="submit">Dodaj pizzu</button>
     </form>
-    <div v-if="errorMessage" style="color: red; margin-top: 10px">
-      {{ errorMessage }}
+    <div v-if="errorPoruka" class="error-message">
+      {{ errorPoruka }}
     </div>
-    <div v-if="successMessage" style="color: green; margin-top: 10px">
-      {{ successMessage }}
+    <div v-if="successPoruka" class="success-message">
+      {{ successPoruka }}
     </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios';
-
 export default {
-  name: 'dodajPizzu',
+  name: 'PizzaView',
   data() {
     return {
-      novaPizza: {
+      newPizza: {
         naziv: '',
         cijena: null,
         sastojciText: '',
       },
-      errorMessage: '',
-      successMessage: '',
+      errorPoruka: '',
+      successPoruka: '',
     };
   },
   methods: {
-    async dodajPizzu() {
+    async Pizza() {
       if (
-        !this.novaPizza.naziv ||
-        this.novaPizza.cijena <= 0 ||
-        !this.novaPizza.sastojciText ||
-        this.novaPizza.sastojciText.trim() === ''
+        !this.newPizza.naziv ||
+        this.newPizza.cijena <= 0 ||
+        !this.newPizza.sastojciText ||
+        this.newPizza.sastojciText.trim() === ''
       ) {
-        this.errorMessage = 'Morate unijeti naziv, cijenu i sastojke!';
-        this.successMessage = '';
+        this.errorPoruka = 'Morate unijeti naziv, cijenu i sastojke!';
+        this.successPoruka = '';
         return;
       }
-
-      // Pretvaranje teksta u niz sastojaka
-      const sastojci = this.novaPizza.sastojciText
+      const sastojci = this.newPizza.sastojciText
         .split(',')
         .map((sastojak) => sastojak.trim())
         .filter((sastojak) => sastojak !== '');
-
       if (sastojci.length === 0) {
-        this.errorMessage = 'Morate unijeti barem jedan sastojak!';
-        this.successMessage = '';
+        this.errorPoruka = 'Morate unijeti barem jedan sastojak!';
+        this.successPoruka = '';
         return;
       }
-
       const podaci = {
         naziv: this.novaPizza.naziv,
         cijena: this.novaPizza.cijena,
         sastojci: sastojci,
       };
-
       console.log('Podaci za slanje:', podaci);
-
-      // Slanje podataka na backend
       try {
         const response = await axios.post(
-          'http://localhost:3010/pizze',
+          'http://localhost:3000/pizze',
           podaci,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
+          { headers: { 'Content-Type': 'application/json' } }
         );
-
-        this.successMessage = 'Pizza uspješno dodana!';
-        this.errorMessage = '';
-        this.novaPizza = { naziv: '', cijena: null, sastojciText: '' };
+        this.successPoruka = 'Pizza uspješno dodana!';
+        this.errorPoruka = '';
+        this.newPizza = { naziv: '', cijena: null, sastojciText: '' };
       } catch (error) {
-        this.errorMessage = 'Došlo je do greške prilikom dodavanja pizze!';
-        this.successMessage = '';
+        this.errorPoruka = 'Došlo je do greške prilikom dodavanja pizze!';
+        this.successPoruka = '';
         console.error('Greška:', error.response?.data || error.message);
       }
     },
@@ -108,46 +95,60 @@ export default {
 <style scoped>
 form {
   margin: 20px auto;
-  max-width: 300px;
-  background: #fff;
-  padding: 15px;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 form div {
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
 label {
   display: block;
   font-weight: bold;
   margin-bottom: 5px;
+  color: #333;
 }
 
 input {
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   box-sizing: border-box;
-  border: 1px solid #ddd;
-  border-radius: 3px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.3s;
+}
+
+input:focus {
+  border-color: #007bff;
+  outline: none;
 }
 
 button {
-  padding: 10px 15px;
-  background: #007bff;
+  padding: 12px 20px;
+  background: #28a745;
   color: #fff;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 16px;
+  transition: background 0.3s;
 }
 
 button:hover {
-  background: #0056b3;
+  background: #218838;
 }
 
-div {
+.error-message {
   color: red;
+  margin-top: 10px;
+}
+
+.success-message {
+  color: green;
   margin-top: 10px;
 }
 </style>
