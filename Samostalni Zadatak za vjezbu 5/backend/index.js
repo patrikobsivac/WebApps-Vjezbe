@@ -8,6 +8,8 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 const db = await connectToDatabase();
+console.log(process.env.MONGO_URI);
+console.log(process.env.MONGO_DB_NAME);
 
 app.get('/', (req, res) => {
   res.send('Pizza app');
@@ -71,7 +73,7 @@ app.post('/narudzba', async (res, req) => {
   try{
     const pizzaDostupna = await pizze_collection.find().toArray();
     const naziviDostupnosti = dostupno.map(pizza => pizza.naziv);
-    for(const artikl of newNarudzba.narucena_pizza)
+    for(const artikl of newNarudzba.narucena_pizza){
       const nedostaciArtiklKljuca = artiklPrimarniKljuc.filter(key => !(key in artikl));
     if(nedostaciArtiklKljuca.length > 0){
       console.log('U artikli narudžbe nedostaju obvezni ključevi: ', nedostaciArtiklKljuca, artikl);
@@ -89,11 +91,30 @@ if (isNaN(artikl.kolicina) || artikl.kolicina <= 0) {
 const rez = await narudzbe_collection.insertOne({ ...newNarudzba, datum: new Date()});
 console.log('Narudžba je spremljena: ', rez);
 res.status(201).json({ msg: 'Narudžba je uspješno spremljena', insertedId: rez.insertedId});
-  }catch (error){
+  } catch (error){
     console.error('Dogodila se greška pri obrade narudžbe: ', error);
     res.status(500).json({ error: 'Dogodila se greška na serveru prilikom obrade narudžbe' });
   }
 });
+
+app.patch('/narudzbe/:id', async (req, res)=>{
+  let narudzbe_collection = db.collection('narudzbe');
+  let id_param = req.params.id;
+  let updateArtikl = req.body.artikl;
+  if (!updateArtikl.every(artikl => Number.isInteger(artikl.kolicina) && artikl.kolicina > 0)) {
+    return res.status(400).json({ error: 'Količina mora imati pozitivan broj' });
+  }
+  try{
+    let rez = await narudzbe_collection.updateOne({ _id: new ObjectId(id_param) }, { $set: { narucene_pizze: azuriraneStavke } });
+    if(rez.modifiedCount===0){
+      return res.status(404).json({ error: 'Narudžba nije pronađen' });
+    }
+    res.status(200).json({modifiedCount: rez.modifiedCount });
+  } catch (error) {
+    console.log(error.errorResponse);
+    res.status(400).json({ error: error.errorResponse });
+  }
+})
 
 app.patch('/pizze/:naziv', async(res,req)=>{
   let pizze_collection = db.collection('pizze');
@@ -103,7 +124,18 @@ app.patch('/pizze/:naziv', async(res,req)=>{
   if(newCijena <= 0){
     return res.status(400).json({ error: 'Cijena mora biti veći od nule'});
   }
-})
+
+  try{
+    const rez = await pizze_collection.updateOne({ naziv: naziv_param }, { $set: { cijena: newCijena } });
+    if(rez.modifiedCount===0){
+      return res.status(400).json({ error: 'Pizza nije pronađen' });
+    }
+    res.status(200).json({ modifiedCount: rez.modifiedCount });
+  }catch (error){
+   console.log(error.errorResponse);
+   res.status(400).json({ error: error.errorResponse });
+  }
+});
 
 
 const PORT = 3000;
