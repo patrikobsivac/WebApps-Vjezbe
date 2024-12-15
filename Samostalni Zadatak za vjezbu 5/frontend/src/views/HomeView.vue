@@ -149,5 +149,253 @@ export default {
       });
     },
   },
+  methods: {
+    async fetchPizze() {
+      try {
+        const response = await axios.get('http://localhost:3000/pizze');
+        this.pizze = response.data;
+      } catch (err) {
+        console.error('Pogreška pri prihvaćanju pizze:', err);
+        alert('Ne mogu uzeti pizze. Provjerite poslužitelj!');
+      }
+    },
+    async addPizzu() {
+      console.log('Podaci prije provjere:', this.newPizza);
+      if (
+        !this.newPizza.naziv ||
+        this.newPizza.cijena <= 0 ||
+        !this.newPizza.sastojciText ||
+        this.newPizza.sastojciText.trim() === ''
+      ) {
+        this.errorPoruka = 'Morate unijeti naziv, cijenu i sastojke!';
+        this.successPoruka = 'Success!';
+        console.log('Greška: Nedostaju obavezni podaci.');
+        return;
+      }
+      const sastojci = this.newPizza.sastojciText
+        .split(',')
+        .map((sastojak) => sastojak.trim())
+        .filter((sastojak) => sastojak !== '');
+      if (sastojci.length === 0) {
+        this.errorPoruka = 'Morate unijeti barem jedan sastojak!';
+        this.successPoruka = 'Success!';
+        return;
+      }
+      this.newPizza.sastojci = sastojci;
+      console.log('Podaci se šalju u backend:', {
+        naziv: this.newPizza.naziv,
+        cijena: this.newPizza.cijena,
+        sastojci: this.newPizza.sastojci,
+      });
+      try {
+        const response = await axios.post('http://localhost:3000/pizze', {
+          naziv: this.newPizza.naziv,
+          cijena: this.newPizza.cijena,
+          sastojci: this.newPizza.sastojci,
+        });
+        console.log('Odgovor sa backenda:', response.data);
+
+        this.successPoruka = 'Pizza uspješno dodana!';
+        this.errorPoruka = 'Pizza nije uspješno dodana';
+        this.pizze.push(response.data);
+        this.novaPizza = { naziv: '', cijena: null, sastojciText: '' };
+      } catch (error) {
+        if (error.response) {
+          console.log('Greška prema odgovoru:', error.response.data);
+          this.errorPoruka =
+            error.response.data.error ||
+            'Došlo je do pogreške prilikom dodavanja pizze!';
+        } else {
+          console.log('Greška u samom zahtjevu:', error.message);
+          this.errorPoruka = 'Došlo je do pogreške prilikom dodavanja pizze!';
+        }
+        this.successPoruka = '';
+      }
+    },
+    addNarudzbu(pizza) {
+      if (!pizza || !pizza.naziv) {
+        this.errorMessage = 'Ova odabrana pizza ne postoji!';
+        this.successMessage = '';
+        return;
+      }
+      const item = this.narudzba.find((p) => p.naziv === pizza.naziv);
+      if (item) {
+        item.kolicina += 1;
+      } else {
+        this.narudzba.push({ ...pizza, kolicina: 1 });
+      }
+      this.updateUkupnaCijena();
+    },
+    deleteNarudzbe(index) {
+      this.narudzba.splice(index, 1);
+      this.updateUkupnaCijena();
+    },
+    updateUkupnaCijena() {
+      this.ukupnaCijena = this.narudzba.reduce(
+        (total, item) => total + item.cijena * item.kolicina,
+        0
+      );
+    },
+    async sendNarudzbu() {
+      if (!this.kupac.ime || !this.kupac.adresa || !this.kupac.broj_telefona) {
+        this.errorPoruka = 'Sva polja za kupce mora biti popunjena!';
+        return;
+      }
+      const narudzbaData = {
+        narucene_pizze: this.narudzba,
+        kupac: this.kupac,
+      };
+      try {
+        const response = await axios.post(
+          'http://localhost:3000/narudzbe',
+          narudzbaData
+        );
+        this.successPoruka = 'Narudžba je uspješno poslana!';
+        this.errorPoruka = 'Narudžba nije uspješno poslana!';
+        this.narudzba = [];
+        this.updateUkupnaCijena();
+      } catch (err) {
+        this.errorPoruka = 'Greška pri slanju narudžbe.';
+        this.successPoruka = '';
+      }
+    },
+  },
+  watch: {
+    successPoruka() {
+      if (this.successPoruka) {
+        setTimeout(() => {
+          this.successPoruka = '';
+        }, 3000);
+      }
+    },
+    errorPoruka() {
+      if (this.errorPoruka) {
+        setTimeout(() => {
+          this.errorPoruka = '';
+        }, 3000);
+      }
+    },
+  },
+  created() {
+    this.fetchPizze();
+  },
 };
 </script>
+
+<style>
+body {
+  font-family: 'Verdana', sans-serif;
+  background-color: #e8eaf6;
+  margin: 0;
+  padding: 0;
+  color: #424242;
+}
+
+#app {
+  padding: 25px;
+  text-align: left;
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  max-width: 1200px;
+  margin: 20px auto;
+}
+
+h1,
+h2 {
+  color: #1e88e5;
+  font-weight: 600;
+}
+
+ul {
+  list-style: circle inside;
+  padding: 10px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+li {
+  background: #ffffff;
+  margin: 15px 0;
+  padding: 15px;
+  max-width: 320px;
+  border-radius: 8px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+li:hover {
+  transform: translateY(-3px);
+}
+
+form {
+  margin: 25px auto;
+  max-width: 350px;
+  background: #fafafa;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #cfd8dc;
+}
+
+form div {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #1565c0;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid #b0bec5;
+  border-radius: 5px;
+  background: #f9f9f9;
+}
+
+input:focus {
+  border-color: #1e88e5;
+  outline: none;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 25px;
+  margin-top: 30px;
+}
+
+.card {
+  background: #fefefe;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: scale(1.07);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+button {
+  padding: 12px 18px;
+  background: #4caf50;
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+button:hover {
+  background: #388e3c;
+}
+</style>
