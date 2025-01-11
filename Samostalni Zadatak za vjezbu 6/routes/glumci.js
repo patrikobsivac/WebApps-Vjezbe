@@ -1,6 +1,6 @@
 import express from 'express';
 import { check, validationResult, param } from 'express-validator';
-import { glumci, ID_Glumac } from '../middleware/idglumci.js';
+import { ID_Glumac } from '../middleware/idglumci.js';
 import { actors } from '../data/store.js';
 
 const router = express.Router();

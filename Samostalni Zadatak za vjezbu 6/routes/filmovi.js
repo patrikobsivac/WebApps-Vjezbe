@@ -1,7 +1,7 @@
 import express from 'express';
 import { param, check, validationResult, query } from 'express-validator';
 import { movies } from '../data/store.js';
-import { ID_Film, movies } from '../middleware/idfilmovi.js';
+import { ID_Film } from '../middleware/idfilmovi.js';
 
 const router = express.Router();
 router.use(input);
