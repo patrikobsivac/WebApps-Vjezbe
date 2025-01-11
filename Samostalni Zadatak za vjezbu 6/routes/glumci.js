@@ -1,6 +1,6 @@
 import express from 'express';
 import { check, validationResult, param } from 'express-validator';
-import { glumci } from '../middleware/findActorById.js';
+import { glumci, ID_Glumac } from '../middleware/idglumci.js';
 import { actors } from '../data/store.js';
 
 const router = express.Router();
@@ -9,13 +9,13 @@ router.get(
   '/:id',
   [param('id').isInt().withMessage('ID mora biti integer')],
   input,
-  glumci,
+  ID_Glumac,
   (req, res) => {
     const err = validationResult(req);
     if (!err.isEmpty()) {
       return res.status(400).json({ err: err.array() });
     }
-    res.json(req.actor);
+    res.json(req.glumac);
   }
 );
 
@@ -29,8 +29,8 @@ router.get(
       return res.status(400).json({ err: err.array() });
     }
     const { name } = req.params;
-    const filterGlumci = actors.filter((actor) =>
-      actor.name.toLowerCase().includes(name.toLowerCase())
+    const filterGlumci = actors.filter((glumac) =>
+      glumac.name.toLowerCase().includes(name.toLowerCase())
     );
     res.json(filterGlumci);
   }
@@ -38,7 +38,7 @@ router.get(
 
 router.patch(
   '/:id',
-  glumci,
+  ID_Glumac,
   [
     check('name').optional().isString().withMessage('Name mora biti string'),
     check('birthYear')
@@ -59,11 +59,45 @@ router.patch(
     if (!err.isEmpty()) {
       return res.status(400).json({ err: err.array() });
     }
-    const { name, birthYear, movies } = req.body;
-    if (name) req.actor.name = name;
-    if (birthYear) req.actor.birthYear = birthYear;
-    if (movies) req.actor.movies = movies;
+    const { ime, god_rodenja, filmovi } = req.body;
+    if (ime) req.glumac.name = ime;
+    if (god_rodenja) req.glumac.birthYear = god_rodenja;
+    if (filmovi) req.glumac.movies = filmovi;
     res.json({ msg: 'Actor ažuriran', actor: req.actor });
+  }
+);
+
+router.post(
+  '/',
+  [
+    check('name')
+      .notEmpty()
+      .withMessage('Name je obavezan')
+      .isString()
+      .withMessage('Name mora biti string'),
+    check('birthYear')
+      .notEmpty()
+      .withMessage('BirthYear je obavezan')
+      .isInt({ min: 1900, max: new Date().getFullYear() })
+      .withMessage(
+        'BirthYear mora biti važeći cijeli broj između 1900. i tekuće godine'
+      ),
+  ],
+  input,
+  (req, res) => {
+    const err = validationResult(req);
+    if (!err.isEmpty()) {
+      return res.status(400).json({ err: err.array() });
+    }
+    const { id, name, birthYear, movies } = req.body;
+    if (!id) {
+      return res.status(400).json({ error: 'Nedostaje obavezno polje: id' });
+    }
+    actors.push({ id, name, birthYear, movies: movies || [] });
+    res.status(201).json({
+      message: 'Actor dodan',
+      actor: { id, name, birthYear, movies: movies || [] },
+    });
   }
 );
 

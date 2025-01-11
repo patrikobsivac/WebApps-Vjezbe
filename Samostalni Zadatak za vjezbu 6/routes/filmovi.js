@@ -1,7 +1,7 @@
 import express from 'express';
 import { param, check, validationResult, query } from 'express-validator';
 import { movies } from '../data/store.js';
-import { filmovi } from '../middleware/findMovieById.js';
+import { ID_Film, movies } from '../middleware/idfilmovi.js';
 
 const router = express.Router();
 router.use(input);
@@ -9,19 +9,19 @@ router.use(input);
 router.get(
   '/:id',
   [param('id').isInt().withMessage('ID mora biti integer')],
-  filmovi,
+  ID_Film,
   (req, res) => {
     const err = validationResult(req);
     if (!err.isEmpty()) {
       return res.status(400).json({ err: err.array() });
     }
-    res.json(req.movie);
+    res.json(req.film);
   }
 );
 
 router.patch(
   '/:id',
-  findMovieById,
+  ID_Film,
   [
     check('title').optional().isString().withMessage('Title mora biti string'),
     check('year')
@@ -42,44 +42,44 @@ router.patch(
       return res.status(400).json({ err: err.array() });
     }
     const { title, year, genre, director } = req.body;
-    if (title) req.movie.title = title;
-    if (year) req.movie.year = year;
-    if (genre) req.movie.genre = genre;
-    if (director) req.movie.director = director;
-    res.json({ message: 'Movie ažuriran', movie: req.movie });
+    if (title) req.film.title = title;
+    if (year) req.film.year = year;
+    if (genre) req.film.genre = genre;
+    if (director) req.film.director = director;
+    res.json({ msg: 'Movie ažuriran', film: req.film });
   }
 );
 
 router.get(
   '/',
   [
-    query('min_year')
+    query('min_god')
       .optional()
       .isInt()
-      .withMessage('min_year mora biti integer'),
-    query('max_year')
+      .withMessage('min_god mora biti integer'),
+    query('max_god')
       .optional()
       .isInt()
-      .withMessage('max_year mora biti integer'),
-    query('min_year')
+      .withMessage('max_god mora biti integer'),
+    query('min_god')
       .optional()
       .custom((value, { req }) => {
         if (
-          req.query.max_year &&
-          parseInt(value) >= parseInt(req.query.max_year)
+          req.query.max_god &&
+          parseInt(value) >= parseInt(req.query.max_god)
         ) {
-          throw new Error('min_year mora biti manje nego max_year');
+          throw new Error('min_god mora biti manje nego max_god');
         }
         return true;
       }),
-    query('max_year')
+    query('max_god')
       .optional()
       .custom((value, { req }) => {
         if (
-          req.query.min_year &&
-          parseInt(value) <= parseInt(req.query.min_year)
+          req.query.min_god &&
+          parseInt(value) <= parseInt(req.query.min_god)
         ) {
-          throw new Error('max_year mora biti veći od min_year');
+          throw new Error('max_god mora biti veći od min_god');
         }
         return true;
       }),
@@ -89,16 +89,16 @@ router.get(
     if (!err.isEmpty()) {
       return res.status(400).json({ err: err.array() });
     }
-    const { min_year, max_year } = req.query;
+    const { min_god, max_god } = req.query;
     let filterFilmovi = movies;
-    if (min_year && max_year) {
+    if (min_god && max_god) {
       filterFilmovi = movies.filter(
-        (movie) => movie.year >= min_year && movie.year <= max_year
+        (film) => film.god >= min_god && movie.god <= max_god
       );
-    } else if (min_year) {
-      filterFilmovi = movies.filter((movie) => movie.year >= min_year);
-    } else if (max_year) {
-      filterFilmovi = movies.filter((movie) => movie.year <= max_year);
+    } else if (min_god) {
+      filterFilmovi = movies.filter((film) => film.god >= min_god);
+    } else if (max_god) {
+      filterFilmovi = movies.filter((film) => film.god <= max_god);
     }
     res.json(filterFilmovi);
   }
@@ -122,7 +122,7 @@ router.post(
     const { id, title, year, genre, director } = req.body;
     const noviMovie = { id, title, year, genre, director };
     movies.push(noviMovie);
-    res.status(201).json({ msg: 'Movie dodan', movie: noviMovie });
+    res.status(201).json({ msg: 'Movie dodan', film: noviMovie });
   }
 );
 export default router;
