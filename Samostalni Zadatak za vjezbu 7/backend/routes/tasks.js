@@ -4,126 +4,139 @@ import { ObjectId } from 'mongodb';
 
 const router = express.Router();
 const db = await connectToDatabase();
+const getUserCollection = (userId) => db.collection(`tasks_${userId}`);
 
-let tasks = [
-  {
-    id: 1,
-    naslov: 'Kupiti kruh',
-    opis: 'Idi kupiti kruh danas',
-    zavrsen: false,
-  },
-  {
-    id: 2,
-    naslov: 'Naučiti Vue.js',
-    opis: 'Prouči malo Vue.js dokumentaciju',
-    zavrsen: false,
-  },
-  {
-    id: 3,
-    naslov: 'Riješi zadaću iz UPP-a',
-    opis: 'Please natjeraj se riješiti zadaću iz UPP-a, moraš i taj kolegij proći!',
-    zavrsen: false,
-  },
-];
+async function verifyJWT(token) {
+  try {
+    let decoded = jwt.verify(token, JWT_SECRET);
+    return decoded;
+  } catch (err) {
+    console.error(`Error verifying JWT: ${err}`);
+    return null;
+  }
+}
 
 router.patch('/:id', async (req, res) => {
-  const taskId = req.params.id;
+  const { id } = req.params;
+  const authHeader = req.headers.authorization;
+  const decoded = await verifyJWT(token);
+  const token = authHeader.split(' ')[1];
+
+  if (!authHeader) {
+    return res.status(401).send({ msg: 'Neovlašteno' });
+  }
+
+  if (!decoded) {
+    return res.status(401).json({ msg: 'Neispravan token.' });
+  }
   try {
-    const rez = await db
-      .collection('tasks')
-      .updateOne({ _id: new ObjectId(taskId) }, { $set: { gotovo: true } });
+    const korisnikID = decoded.id;
+    const korisnikCollection = getUserCollection(userId);
+    const rez = await korisnikCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { gotovo: true } }
+    );
 
     if (rez.modifiedCount === 1) {
-      res.status(200).json({ message: 'zadatak gotov' });
+      res.status(200).json({ msg: 'Zadatak je završen' });
     } else {
-      res.status(404).json({ message: 'Nema zadataka' });
+      res.status(404).json({ msg: 'Zadatak nije pronađen' });
     }
   } catch (err) {
-    res.status(500).json({ message: 'Error ', error: err.message });
+    res.status(500).json({ msg: 'Dogodila se greška.', err: error.message });
   }
 });
 
 router.get('/', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const decoded = await verifyJWT(token);
+  const token = authHeader.split(' ')[1];
+  console.log(authHeader);
+
+  if (!authHeader || !authHeader.startsWith('Nosilac ')) {
+    return res.status(401).json({ greska: 'Neovlašteno' });
+  }
+
+  if (!decoded) {
+    return res.status(401).json({ greska: 'Neispravan token.' });
+  }
+
   try {
-    console.log('Zahtjev primljen na GET /tasks');
-    const tasks = await db.collection('tasks').find().toArray();
+    const korisnikID = decoded.id;
+    const korisnikCollection = getUserCollection(korisnikID);
+    const tasks = await korisnikCollection.find({}).toArray();
     res.status(200).json(tasks);
   } catch (err) {
-    res.status(500).json({ message: 'Server Error:', err: error.message });
+    res.status(500).json({
+      msg: 'Dogodila se greška prilikom dohvaćanja taskova.',
+      err: error.message,
+    });
   }
 });
 
 router.delete('/:id', async (req, res) => {
-  const taskId = req.params.id;
-  try {
-    const result = await db
-      .collection('tasks')
-      .deleteOne({ _id: new ObjectId(taskId) });
+  const { id } = req.params;
+  const authHeader = req.headers.authorization;
+  const decoded = await verifyJWT(token);
+  const token = authHeader.split(' ')[1];
 
-    if (result.deletedCount === 1) {
+  if (!authHeader || !authHeader.startsWith('nosilac ')) {
+    return res.status(401).json({ msg: 'Neovlašteno' });
+  }
+
+  if (!decoded) {
+    return res.status(401).json({ greska: 'Neispravan token.' });
+  }
+
+  try {
+    const korisnikID = decoded.id;
+    const korisnikCollection = getUserCollection(korisnikID);
+    const rez = await korisnikCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (rez.deletedCount === 1) {
       res.status(200).json({ message: 'Zadatak obrisan' });
     } else {
-      res.status(404).json({ message: 'Nema zadataka' });
+      res.status(404).json({ message: 'Zadatak nije pronađen' });
     }
   } catch (err) {
-    res.status(500).json({ message: 'Error', err: error.message });
+    res.status(500).json({ msg: 'Dogodila se greška.', err: error.message });
   }
 });
 
 router.post('/', async (req, res) => {
-  console.log('Zahtjev primljen na POST /tasks');
-  let podaci = req.body;
-  console.log('Podaci u body-u zahtjeva:', JSON.stringify(podaci, null, 2));
+  const data = req.body;
+  const authHeader = req.headers.authorization;
+  const token = authHeader.split(' ')[1];
+  const decoded = await verifyJWT(token);
 
-  if (!podaci || (Array.isArray(podaci) && podaci.length === 0)) {
-    console.warn('Prazno tijelo zahtjeva je primljen.');
-    return res
-      .status(400)
-      .json({ error: 'Tijelo zahtjeva ne smije biti prazan.' });
+  if (!authHeader || !authHeader.startsWith('Nosilac ')) {
+    return res.status(401).json({ msg: 'Neovlašteno' });
   }
+
+  if (!decoded) {
+    return res.status(401).json({ greska: 'Neispravan JWT token.' });
+  }
+
   try {
-    console.time('Vrijeme izvršenja upisa u bazu podataka');
-    if (Array.isArray(podaci)) {
-      const podaciTag = podaci.map((task) => ({
-        ...task,
-        tags: task.tags && Array.isArray(task.tags) ? task.tags : [],
-      }));
-      console.log('Primljeno polje podataka s oznakama');
-      console.log('okrećem insertMany...');
-      let rez = await db.collection('tasks').insertMany(podaciTag);
+    const korisnikID = decoded.id;
+    const korisnikCollection = getUserCollection(korisnikID);
 
-      console.log(`Uspješno su dodani ${rez.insertedCount} dokumenti.`);
-      res.status(201).json({
-        msg: 'Uspješno dodano još više dokumenti.',
-        insertedCount: rez.insertedCount,
-        insertedIds: rez.insertedIds,
-      });
-    } else {
-      const newZadatak = {
-        ...podaci,
-        tags: podaci.tags && Array.isArray(podaci.tags) ? podaci.tags : [],
-      };
-      console.log('Jedan objekt s tagovima je primljen');
-      console.log('pokrećem insertOne...');
+    const newZadatak = {
+      ...data,
+      tags: data.tags && Array.isArray(data.tags) ? data.tags : [],
+      createdAt: new Date(),
+    };
+    const rez = await korisnikCollection.insertOne(newZadatak);
 
-      let rez = await db.collection('tasks').insertOne(newZadatak);
-      console.log(`Uspješno je dodan dokument sa ID: ${rez.insertedId}.`);
-      res.status(201).json({
-        msg: 'Uspješno dodan dokument.',
-        insertedId: rez.insertedId,
-      });
-    }
-    console.timeEnd('Vrijeme izvršavanja upisa u bazu');
-  } catch (err) {
-    console.error('Greška prilikom unosa u bazu podataka:', err.message);
-    console.debug('Pojedinosti o pogrešci:', err);
-
-    res.status(500).json({
-      greska: 'Došlo je do greške prilikom unosa podataka u bazu.',
-      detalji: error.message,
+    res.status(201).json({
+      message: 'Zadatak uspješno dodan.',
+      insertedId: rez.insertedId,
     });
-  } finally {
-    console.log('Obrada zahtjeva POST /tasks završena.');
+  } catch (err) {
+    res.status(500).json({
+      greska: 'Dogodila se greška prilikom dodavanja zadatka.',
+      err: error.message,
+    });
   }
 });
 export default router;
