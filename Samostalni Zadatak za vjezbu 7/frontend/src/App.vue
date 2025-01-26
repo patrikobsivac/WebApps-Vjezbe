@@ -7,12 +7,22 @@ const tasks = ref([]);
 const editing = ref(false);
 
 onMounted(async () => {
+  let token = localStorage.getItem('token');
+  if (!token) {
+    alert('niste prijavljeni');
+    return;
+  }
+
   try {
-    const response = await axios.get('http://localhost:3000/tasks');
+    const response = await axios.get('http://localhost:3000/tasks', {
+      headers: {
+        Authorization: token,
+      },
+    });
     tasks.value = response.data;
     console.log('Dohvaćeno:', response.data);
-  } catch (error) {
-    console.error('Error tijekom dohvaćanja:', error);
+  } catch (err) {
+    console.error('Error tijekom dohvaćanja:', err);
   }
 });
 
@@ -80,7 +90,7 @@ async function deleteTask(taskId) {
       <h2 class="text-2xl font-bold text-gray-700 mb-5">Popis Zadaća</h2>
       <ul class="divide-y divide-gray-300">
         <li
-          v-for="(task, index) in tasks"
+          v-for="(task) in tasks"
           :key="task._id"
           :class="{ 'bg-teal-100': task.gotov }"
           class="flex justify-between items-center py-4 px-4 rounded-lg transition-all"
